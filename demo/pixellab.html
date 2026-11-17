@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- The page draws from the game's own files: every path below, and every image path in the
+     game's data, is from the game's root -->
+<base href="../">
+<title>University of Wonderwood — Art Demo</title>
+<style>
+    body { margin: 0; padding: 16px 16px 32px; background: #1d2021; color: #d5c4a1; font: 13px monospace;
+           display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    canvas { image-rendering: pixelated; display: block; max-width: 100%; }
+    h1 { font-size: 18px; margin: 4px 0 0; color: #fbf1c7; }
+    h2 { font-size: 14px; margin: 22px 0 0; color: #ebdbb2; }
+    .note { opacity: 0.75; max-width: 960px; text-align: center; }
+    #controls { position: sticky; top: 0; z-index: 1; background: #1d2021ee; padding: 8px 12px;
+                display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center;
+                border-bottom: 1px solid #3c3836; width: 100%; max-width: 960px; box-sizing: border-box; }
+    #controls button { font: inherit; background: #282828; color: #d5c4a1; border: 1px solid #504945;
+                       padding: 3px 8px; cursor: pointer; }
+    #controls button.on { background: #504945; color: #fbf1c7; }
+    #hour { width: 260px; }
+    #hourLabel { min-width: 270px; }
+    #looks { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; width: 100%; max-width: 2000px; }
+    .look { display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 100%; }
+    #cast { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 12px;
+            width: 100%; max-width: 1040px; }
+    .card { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+    .card .pics { display: flex; align-items: flex-end; gap: 4px; }
+    .card canvas { border: 1px solid #3c3836; background: #282828; }
+    .card .name { color: #ebdbb2; }
+    .card .role, .card .state { opacity: 0.65; font-size: 11px; }
+    footer { opacity: 0.75; max-width: 960px; text-align: center; margin-top: 18px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<h1>University of Wonderwood</h1>
+<div class="note">Drawn from the game's own map, sprites, seasons and light (design/day-night.md §7). It opens from file://, with no server.</div>
+<div id="controls">
+    <span id="seasons"></span>
+    <input id="hour" type="range" min="0" max="1199" step="5" value="660">
+    <span id="hourLabel"></span>
+    <span id="presets"></span>
+</div>
+
+<h2>1. The University of Wonderwood</h2>
+<div class="note">The stair head: the entrance sign, the banner lamps down the flights, the trees on the flanks. Arrow keys or WASD walk Marriott; the W stands at the north end of the walk, past Larch Hill.</div>
+<canvas id="stairs"></canvas>
+
+<h2>2. The four seasons and the snow day</h2>
+<div class="note">The same frame in each look: the cherry walk on Green Walkway 1, at the foot of the stair. The season picker doesn't apply here; the hour does.</div>
+<div id="looks"></div>
+
+<h2>3. The Customs House</h2>
+<div class="note">At its full 385 px on the quay, with the Esplanade railing, the bus shelter and a lamp, and Dr. Webb for scale. At night the dial is backlit and light washes up the tower; the windows stay dark.</div>
+<canvas id="customs"></canvas>
+
+<h2>4. The Ballast on a Friday night</h2>
+<div class="note">Finn plays Fridays from 8 to 11 PM: the house lights go down and a spot lights the stage. The blade sign and the back door light Spruce Street. Try 9 PM.</div>
+<canvas id="ballast"></canvas>
+
+<h2>5. The cast</h2>
+<div class="note">All 16 at game scale: walking and turning through the 8 directions, then idle, talking, and their work pose; beside each, the 64 × 64 portrait through its expressions.</div>
+<div id="cast"></div>
+
+<footer id="counts"></footer>
+
+<!-- The game's scripts, read-only, in the game's order (index.html), all but main.js -->
+<script src="util.js"></script>
+<script src="timer.js"></script>
+<script src="assetmanager.js"></script>
+<script src="components/position.js"></script>
+<script src="components/velocity.js"></script>
+<script src="components/sprite.js"></script>
+<script src="components/animator.js"></script>
+<script src="components/collider.js"></script>
+<script src="components/facing.js"></script>
+<script src="components/text.js"></script>
+<script src="components/playercontrolled.js"></script>
+<script src="components/agent.js"></script>
+<script src="components/inventory.js"></script>
+<script src="components/skills.js"></script>
+<script src="components/schedule.js"></script>
+<script src="components/npc.js"></script>
+<script src="components/task.js"></script>
+<script src="components/project.js"></script>
+<script src="components/commitment.js"></script>
+<script src="components/quarter.js"></script>
+<script src="components/critter.js"></script>
+<script src="systems/pathfinding.js"></script>
+<script src="systems/clock.js"></script>
+<script src="systems/season.js"></script>
+<script src="systems/movement.js"></script>
+<script src="systems/critters.js"></script>
+<script src="systems/camera.js"></script>
+<script src="systems/animation.js"></script>
+<script src="systems/lighting.js"></script>
+<script src="systems/rain.js"></script>
+<script src="systems/wisps.js"></script>
+<script src="systems/render.js"></script>
+<script src="maps/campus.js"></script>
+<script src="maps/tilesets.js"></script>
+<script src="maps/autotile.js"></script>
+<script src="maps/buildingkit.js"></script>
+<script src="entities/charactersheets.js"></script>
+<script src="entities/props.js"></script>
+<script src="entities/student.js"></script>
+<script src="setup.js"></script>
+<script src="gameengine.js"></script>
+<script>
+// The art demo (design/day-night.md §7). The page builds the campus as the game does (setup.js)
+// and draws every view with the game's own systems: SeasonSystem dresses it for the look,
+// AnimationSystem steps the sprites, and a RenderSystem per view draws it in the hour's light
+// (Lighting). Nothing is read back from a canvas, so it works from file://.
+//
+// What it copies from the game, because the game keeps it in main.js's startGame:
+// - Finn's work spot, gig and hours, and the cells Marriott, Jordan and Webb are put in;
+// - the cast's roles under their names (CAST_ROLES);
+// - the PixelLab tally in the footer (TALLY), the artist's count.
+
+const ASSET_MANAGER = new AssetManager();
+const gameEngine = new GameEngine();          // the demo's world; seeSeason and seeHour act on it
+const game = gameEngine;
+const T = (c, r) => ({ x: c * 64, y: r * 64 });
+const FRIDAY = 6;                             // clock.day, Sunday = 1
+
+const CAST_ROLES = {
+    'Dr. Marriott': 'CS faculty', 'Jordan Burman': 'undergrad', 'player': 'the default player',
+    'Dr. Chebib': 'Biology faculty', 'Dr. Nair': 'Statistics faculty', 'Alex Okafor': 'Writing Center',
+    'Dr. Webb': 'Physics faculty', 'Sam Park': 'CS grad', 'Maria Vásquez': 'Biology grad',
+    'Travis Whitfield': 'Statistics grad', 'Casey Drummond': 'Writing grad', 'Dmitri Volkov': 'Physics grad',
+    'Dani Reyes': 'the Campus Café', 'Ruth George': 'the Bookstore', 'Finn Larsen': 'The Ballast',
+    'Owen Marsh': 'the Sandwich Shop',
+};
+const CAST_NAMES = { 'player': 'Alex Chen', 'Dr. Chebib': 'Dr. Jobran Chebib' };
+const TALLY = { gens: '1,128 of 2,000 (2026-11-15), seasons included',
+                art:  'Day and night used no gens: the night glass and the screen, neon and jukebox masks were made by script, and the rest by hand.' };
+
+const SEASON_KEYS = [...params.SEASONS, 'snow'];
+const WORK_POSES  = ['perform', 'write', 'type', 'work'];
+
+// ---- The look and the hour ------------------------------------------------------------------
+
+let season = 'fall';
+
+// Dresses the campus for a look: a season on a Friday that isn't a snow day, or the first snow day
+function setLook(key) {
+    const clock = game.clock;
+    if (key === 'snow') { seeSeason('snow'); return; }
+    game.quarter.number = params.SEASONS.indexOf(key) + 1;
+    clock.day = FRIDAY;
+    for (clock.week = 1; weatherOf(game.quarter, clock); clock.week++);
+}
+
+function setMinute(minute) {
+    game.clock.gameMinute = minute;
+    game.clock.accumulator = 0;
+}
+
+function hourLabel() {
+    const at = clockHour(game.clock), { phase } = daylightOf(at, game.season, game.weather);
+    return `${game.clock.getTimeString()} ${game.clock.getDayName()} · ${game.weather || game.season} · ${phase}` +
+           (lampsOn(at, game.season) ? ' · lamps on' : '');
+}
+
+// ---- Views: each draws the world through its own RenderSystem onto a stage the size of a game
+// screen (the view, under the HUD's band), and the view takes the stage below the band ----------
+
+function makeView(canvas, w, h, camera) {
+    canvas.width = w; canvas.height = h;
+    const stage = document.createElement('canvas');
+    stage.width = w; stage.height = h + UI_HEIGHT;
+    return { canvas, ctx: canvas.getContext('2d'), stage, stageCtx: stage.getContext('2d'),
+             render: new RenderSystem(), camera, w, h };
+}
+
+function drawView(view, dt) {
+    game.ctx = view.stageCtx;
+    game.ctx.imageSmoothingEnabled = false;
+    game.camera = view.camera();
+    view.render.update(dt, game);
+    view.ctx.imageSmoothingEnabled = false;
+    view.ctx.drawImage(view.stage, 0, UI_HEIGHT, view.w, view.h, 0, 0, view.w, view.h);
+}
+
+// A camera with the view centred on world point (x, y), kept on the map
+function centredOn(x, y, w, h) {
+    const lvl = game.currentLevel;
+    return { x: Math.max(0, Math.min(lvl.tiles[0].length * 64 - w, x - w / 2)),
+             y: Math.max(0, Math.min(lvl.tiles.length * 64 - h, y - h / 2)) };
+}
+
+// ---- Marriott, on the keys --------------------------------------------------------------------
+
+const keys = new Set();
+const KEY_VECTORS = {
+    ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1],
+    ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0],
+};
+addEventListener('keydown', e => { if (KEY_VECTORS[e.code]) { keys.add(e.code); e.preventDefault(); } });
+addEventListener('keyup',   e => keys.delete(e.code));
+const WALK_SPEED = 180;   // px a second, the player's
+
+function steer(entity) {
+    let x = 0, y = 0;
+    for (const k of keys) { x += KEY_VECTORS[k][0]; y += KEY_VECTORS[k][1]; }
+    const len = Math.hypot(x, y) || 1;
+    entity.velocity.dx = x / len * WALK_SPEED;
+    entity.velocity.dy = y / len * WALK_SPEED;
+}
+
+// ---- Finn: behind the bar from five, on the stage for the Friday gig ---------------------------
+
+const FINN = { work: T(28, 30), workPose: 'work', workHours: { arrive: 660, depart: 1200 },
+               gigs: [{ day: FRIDAY, from: 840, to: 1020, at: T(27, 33), pose: 'perform' }] };
+
+function placeFinn(finn) {
+    const minute = game.clock.gameMinute, npc = finn.npc;
+    npc.gig = npc.gigs.find(g => g.day === game.clock.day && minute >= g.from && minute < g.to) || null;
+    npc.state = 'at-work';
+    const at = npc.gig ? npc.gig.at : npc.work;
+    finn.position.x = at.x; finn.position.y = at.y;
+}
+
+// ---- The cast ---------------------------------------------------------------------------------
+
+const TURN_MS = 450, HOLD_MS = 2200;
+
+function buildCast() {
+    const host = document.getElementById('cast');
+    return Object.entries(CHARACTER_SHEETS).map(([key, paths], i) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const pics = document.createElement('div');
+        pics.className = 'pics';
+        const body = document.createElement('canvas'), face = document.createElement('canvas');
+        body.width = body.height = params.CHAR_CELL * params.ART_SCALE;
+        face.width = face.height = 64;
+        pics.append(body, face);
+        card.append(pics);
+        const name = CAST_NAMES[key] || key, state = document.createElement('div');
+        state.className = 'state';
+        card.insertAdjacentHTML('beforeend', `<div class="name">${name}</div><div class="role">${CAST_ROLES[key] || ''}</div>`);
+        card.append(state);
+        host.append(card);
+        const sheets = Object.fromEntries(Object.entries(paths).map(([s, p]) => [s, ASSET_MANAGER.getAsset(p)]));
+        const work = WORK_POSES.find(s => sheets[s]);
+        const plan = [...Array(8).keys()].map(row => ({ state: 'walk', row, ms: TURN_MS }))
+            .concat([{ state: 'idle', row: 0, ms: HOLD_MS }, { state: 'talk', row: 0, ms: HOLD_MS }],
+                    work ? [{ state: work, row: 0, ms: HOLD_MS }] : []);
+        return { body: body.getContext('2d'), face: face.getContext('2d'), stateEl: state, sheets, plan,
+                 offset: i * 397 };
+    });
+}
+
+function drawCard(card, now) {
+    const total = card.plan.reduce((s, p) => s + p.ms, 0);
+    let t = (now + card.offset) % total, step = card.plan[0];
+    for (const p of card.plan) { if (t < p.ms) { step = p; break; } t -= p.ms; }
+    let state = step.state;
+    while (!card.sheets[state]) state = params.CHAR_STATES[state].fallback;
+    const fmt = params.CHAR_STATES[state], cell = params.CHAR_CELL, k = params.ART_SCALE;
+    const frame = Math.floor(now / 1000 * fmt.fps) % fmt.frames, row = fmt.rows === 1 ? 0 : step.row;
+    const b = card.body;
+    b.imageSmoothingEnabled = false;
+    b.clearRect(0, 0, cell * k, cell * k);
+    b.drawImage(card.sheets[state], frame * cell, row * cell, cell, cell, 0, 0, cell * k, cell * k);
+    const p = card.sheets.portrait, faces = Math.max(1, Math.floor(p.width / 64));
+    const f = card.face;
+    f.imageSmoothingEnabled = false;
+    f.clearRect(0, 0, 64, 64);
+    f.drawImage(p, (Math.floor(now / 1400 + card.offset) % faces) * 64, 0, 64, 64, 0, 0, 64, 64);
+    const label = step.state === 'walk' ? 'walk' : step.state;
+    if (card.stateEl.textContent !== label) card.stateEl.textContent = label;
+}
+
+// ---- Boot -------------------------------------------------------------------------------------
+
+queueGameArt(ASSET_MANAGER);
+ASSET_MANAGER.downloadAll(() => {
+    game.ctx = document.createElement('canvas').getContext('2d');
+    setUpLevel(game, CAMPUS);
+    game.clock   = new ClockSystem();
+    game.quarter = new Quarter(1);
+    game.paused  = false;
+    game.activeScene = null; game.activePanel = null; game.npcDialogue = null;
+    const seasons = new SeasonSystem(), animation = new AnimationSystem(), movement = new MovementSystem();
+    const camera = new CameraSystem();
+
+    // The people: Marriott on the keys at the stair head, Jordan by the entrance sign, Webb on the quay for
+    // the Customs House's scale, Finn at the Ballast
+    const marriott = createAcademic(game, 'Dr. Marriott', 'faculty', '#5c9ed6');
+    Object.assign(marriott.position, T(35, 39));
+    game.player = marriott;
+    const jordan = createAcademic(game, 'Jordan Burman', 'undergraduate', '#a8d8a8');
+    Object.assign(jordan.position, T(41, 39));
+    const webb = createAcademic(game, 'Dr. Webb', 'senior', '#a67db8');
+    Object.assign(webb.position, T(30, 101));   // on the quay before its west wing
+    const finn = createAcademic(game, 'Finn Larsen', 'staff', '#8d6e63', FINN);
+
+    setLook(season);
+    setMinute(+document.getElementById('hour').value);
+    seasons.update(0, game);
+
+    // The views
+    const tower = game.props.find(p => p.propType === 'customsHouse' && p.sprite.frameHeight > 300);
+    const towerFoot = groundPoint(tower);
+    const views = {
+        stairs:  makeView(document.getElementById('stairs'), 960, 600, () => {
+                     camera.update(0, game);   // follows Marriott (game.player), as in the game
+                     return game.camera;
+                 }),
+        customs: makeView(document.getElementById('customs'), 960, 960,
+                     () => centredOn(towerFoot.x, towerFoot.y - 330, 960, 960)),
+        ballast: makeView(document.getElementById('ballast'), 960, 600,
+                     () => centredOn(25 * 64, 32 * 64 + 16, 960, 600)),
+    };
+
+    // The looks: five frames, redrawn when the hour changes
+    const looksHost = document.getElementById('looks');
+    const lookViews = SEASON_KEYS.map(key => {
+        const box = document.createElement('div');
+        box.className = 'look';
+        const canvas = document.createElement('canvas');
+        box.append(canvas);
+        box.insertAdjacentHTML('beforeend', `<div>${key === 'snow' ? 'the snow day' : key}</div>`);
+        looksHost.append(box);
+        return { key, view: makeView(canvas, 640, 400, () => centredOn(31 * 64, 50.2 * 64, 640, 400)) };
+    });
+    function drawLooks() {
+        const keep = { number: game.quarter.number, week: game.clock.week, day: game.clock.day };
+        const camKeep = game.camera;
+        for (const { key, view } of lookViews) {
+            setLook(key);
+            seasons.update(0, game);
+            drawView(view, 0);
+        }
+        game.quarter.number = keep.number; game.clock.week = keep.week; game.clock.day = keep.day;
+        seasons.update(0, game);
+        game.camera = camKeep;
+    }
+
+    // The controls
+    const seasonBox = document.getElementById('seasons');
+    for (const key of SEASON_KEYS) {
+        const b = document.createElement('button');
+        b.textContent = key === 'snow' ? 'snow day' : key;
+        b.onclick = () => {
+            season = key;
+            setLook(key);
+            seasons.update(0, game);
+            for (const x of seasonBox.children) x.classList.toggle('on', x === b);
+        };
+        b.classList.toggle('on', key === season);
+        seasonBox.append(b);
+    }
+    const hour = document.getElementById('hour');
+    let looksDue = true;
+    hour.oninput = () => { setMinute(+hour.value); looksDue = true; };
+    const presetBox = document.getElementById('presets');
+    for (const [label, h] of [['golden hour', null], ['9 PM', 21], ['1 AM', 25]]) {
+        const b = document.createElement('button');
+        b.textContent = label;
+        b.onclick = () => {
+            const at = h === null ? params.DAYLIGHT[game.season].sunset - 0.5 : h;
+            hour.value = Math.round((at - DAY_START_HOUR) * 60);
+            hour.oninput();
+        };
+        presetBox.append(b);
+    }
+
+    const cards = buildCast();
+    document.getElementById('counts').innerHTML =
+        `${ASSET_MANAGER.successCount} images in the game, all loaded here` +
+        (ASSET_MANAGER.errorCount ? ` (${ASSET_MANAGER.errorCount} missing)` : '') + '.<br>' +
+        `PixelLab generations: ${TALLY.gens}.<br>${TALLY.art}`;
+
+    const label = document.getElementById('hourLabel');
+    let prev = performance.now();
+    function frame(now) {
+        const dt = Math.min((now - prev) / 1000, 0.05);
+        prev = now;
+        steer(marriott);
+        placeFinn(finn);
+        seasons.update(0, game);
+        movement.update(dt, game);
+        animation.update(dt, game);
+        drawView(views.stairs, dt);
+        drawView(views.customs, 0);
+        drawView(views.ballast, 0);
+        if (looksDue) { looksDue = false; drawLooks(); }
+        for (const card of cards) drawCard(card, now);
+        const text = hourLabel();
+        if (label.textContent !== text) label.textContent = text;
+        requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+});
+</script>
+</body>
+</html>
